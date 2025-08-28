@@ -207,8 +207,7 @@ def test_run_mark_and_fail_on_flaky_fails_with_custom_error_code_after_pass_on_r
 
         @pytest.mark.flaky(reruns=1)
         def test_fail():
-            {temporary_failure()}
-    """)
+            {temporary_failure()}""")
     result = testdir.runpytest("--fail-on-flaky")
     assert_outcomes(result, passed=1, rerun=1)
     assert result.ret == 7
@@ -217,13 +216,15 @@ def test_run_mark_and_fail_on_flaky_fails_with_custom_error_code_after_pass_on_r
 def test_run_fails_with_code_1_after_test_failure_with_fail_on_flaky_and_mark(
     testdir,
 ):
-    testdir.makepyfile("""
+    testdir.makepyfile(
+        """
         import pytest
 
         @pytest.mark.flaky(reruns=2)
         def test_fail():
             assert False
-    """)
+    """
+    )
     result = testdir.runpytest("--fail-on-flaky")
     assert_outcomes(result, passed=0, failed=1, rerun=2)
     assert result.ret == 1
@@ -232,7 +233,8 @@ def test_run_fails_with_code_1_after_test_failure_with_fail_on_flaky_and_mark(
 def test_run_with_mark_and_fail_on_flaky_succeeds_if_all_tests_pass_without_reruns(
     testdir,
 ):
-    testdir.makepyfile("""
+    testdir.makepyfile(
+        """
         import pytest
 
         @pytest.mark.flaky(reruns=2)
@@ -241,7 +243,8 @@ def test_run_with_mark_and_fail_on_flaky_succeeds_if_all_tests_pass_without_reru
 
         def test_unmarked_pass():
             assert True
-    """)
+    """
+    )
     result = testdir.runpytest("--fail-on-flaky")
     assert_outcomes(result, passed=2, rerun=0)
     assert result.ret == pytest.ExitCode.OK
@@ -338,7 +341,7 @@ def test_verbose(testdir):
             {temporary_failure()}"""
     )
     result = testdir.runpytest("--reruns", "1", "-v")
-    result.stdout.fnmatch_lines_random(["test_*:* RERUN*"])
+    result.stdout.fnmatch_lines_random(["test_* RERUN*"])
     assert "1 rerun" in result.stdout.str()
 
 
@@ -616,7 +619,10 @@ def test_only_rerun_flag(testdir, only_rerun_texts, should_rerun):
         pytest_args.extend(["--only-rerun", only_rerun_text])
     result = testdir.runpytest(*pytest_args)
     assert_outcomes(
-        result, passed=num_passed, failed=num_failed, rerun=num_reruns_actual
+        result,
+        passed=num_passed,
+        failed=num_failed,
+        rerun=num_reruns_actual,
     )
 
 
@@ -659,7 +665,10 @@ def test_rerun_except_flag(testdir, rerun_except_texts, should_rerun):
         pytest_args.extend(["--rerun-except", rerun_except_text])
     result = testdir.runpytest(*pytest_args)
     assert_outcomes(
-        result, passed=num_passed, failed=num_failed, rerun=num_reruns_actual
+        result,
+        passed=num_passed,
+        failed=num_failed,
+        rerun=num_reruns_actual,
     )
 
 
@@ -681,7 +690,10 @@ def test_rerun_except_flag(testdir, rerun_except_texts, should_rerun):
     ],
 )
 def test_rerun_except_and_only_rerun(
-    testdir, rerun_except_texts, only_rerun_texts, should_rerun
+    testdir,
+    rerun_except_texts,
+    only_rerun_texts,
+    should_rerun,
 ):
     testdir.makepyfile('def test_only_rerun_except(): raise ValueError("ERR")')
 
@@ -697,7 +709,10 @@ def test_rerun_except_and_only_rerun(
         pytest_args.extend(["--rerun-except", rerun_except_text])
     result = testdir.runpytest(*pytest_args)
     assert_outcomes(
-        result, passed=num_passed, failed=num_failed, rerun=num_reruns_actual
+        result,
+        passed=num_passed,
+        failed=num_failed,
+        rerun=num_reruns_actual,
     )
 
 
@@ -801,7 +816,10 @@ def test_reruns_with_string_condition_with_global_var(testdir):
     ],
 )
 def test_only_rerun_flag_in_flaky_marker(
-    testdir, marker_only_rerun, cli_only_rerun, should_rerun
+    testdir,
+    marker_only_rerun,
+    cli_only_rerun,
+    should_rerun,
 ):
     testdir.makepyfile(
         f"""
@@ -815,7 +833,7 @@ def test_only_rerun_flag_in_flaky_marker(
     args = []
     if cli_only_rerun:
         args.extend(["--only-rerun", cli_only_rerun])
-    result = testdir.runpytest()
+    result = testdir.runpytest(*args)
     num_reruns = 1 if should_rerun else 0
     assert_outcomes(result, passed=0, failed=1, rerun=num_reruns)
 
@@ -839,7 +857,11 @@ def test_only_rerun_flag_in_flaky_marker(
     ],
 )
 def test_rerun_except_flag_in_flaky_marker(
-    testdir, marker_rerun_except, cli_rerun_except, raised_error, should_rerun
+    testdir,
+    marker_rerun_except,
+    cli_rerun_except,
+    raised_error,
+    should_rerun,
 ):
     testdir.makepyfile(
         f"""
@@ -1486,11 +1508,11 @@ def test_reruns_with_string_condition_using_error(testdir):
             def __init__(self, code):
                 self.code = code
 
-        @pytest.mark.flaky(reruns=2, condition=\"error.code == 123\")
+        @pytest.mark.flaky(reruns=2, condition="error.code == 123")
         def test_fail_two():
             raise CustomError(123)
 
-        @pytest.mark.flaky(reruns=2, condition=\"error.code == 456\")
+        @pytest.mark.flaky(reruns=2, condition="error.code == 456")
         def test_fail_three():
             raise CustomError(123)
 
@@ -1507,7 +1529,7 @@ def test_reruns_with_callable_condition_raising_exception(testdir):
         import pytest
 
         def condition(err):
-            raise ValueError(\"Whoops!\")
+            raise ValueError("Whoops!")
 
         @pytest.mark.flaky(reruns=2, condition=condition)
         def test_fail_two():
@@ -1521,3 +1543,110 @@ def test_reruns_with_callable_condition_raising_exception(testdir):
         "*UserWarning: Error evaluating 'flaky' condition as a callable*",
         "*ValueError: Whoops!*",
     ])
+
+
+def test_reruns_with_string_condition_raising_exception(testdir):
+    testdir.makepyfile(
+        """
+        import pytest
+
+        @pytest.mark.flaky(reruns=2, condition="foo is bar")
+        def test_fail_two():
+            assert False
+        """
+    )
+
+    result = testdir.runpytest()
+    assert_outcomes(result, passed=0, failed=1, rerun=0)
+    result.stdout.fnmatch_lines([
+        "*UserWarning: Error evaluating 'flaky' condition as a string*",
+        "*NameError: name 'foo' is not defined*",
+    ])
+
+
+def test_reruns_with_string_condition_with_syntax_error(testdir):
+    testdir.makepyfile(
+        """
+        import pytest
+
+        @pytest.mark.flaky(reruns=2, condition="foo is not bar")
+        def test_fail_two():
+            assert False
+        """
+    )
+
+    result = testdir.runpytest()
+    assert_outcomes(result, passed=0, failed=1, rerun=0)
+    result.stdout.fnmatch_lines([
+        "*UserWarning: Error evaluating 'flaky' condition as a string*",
+        "*NameError: name 'foo' is not defined*",
+    ])
+
+
+def test_reruns_with_invalid_condition(testdir):
+    testdir.makepyfile(
+        """
+        import pytest
+
+        @pytest.mark.flaky(reruns=2, condition=None)
+        def test_fail_two():
+            assert False
+        """
+    )
+
+    result = testdir.runpytest()
+    assert_outcomes(result, passed=0, failed=1, rerun=0)
+
+
+def test_rerun_fails_and_xfails_after_consistent_test_failure(testdir):
+    testdir.makepyfile("""
+        import pytest
+        @pytest.mark.flaky(reruns=1, on_retries_fail="xfail")
+        def test_fail():
+            assert False
+    """)
+    result = testdir.runpytest()
+    assert_outcomes(result, passed=0, xfailed=1, rerun=1)
+
+
+def test_rerun_passes_with_xfail_on_retries_fail(testdir):
+    testdir.makepyfile(f"""
+        import pytest
+        @pytest.mark.flaky(reruns=2, on_retries_fail="xfail")
+        def test_pass():
+            {temporary_failure(1)}""")
+    result = testdir.runpytest("-r", "R")
+    assert_outcomes(result, passed=1, rerun=1)
+
+
+def test_rerun_fails_and_fails_with_fail_on_retries_fail(testdir):
+    testdir.makepyfile("""
+        import pytest
+        @pytest.mark.flaky(reruns=1, on_retries_fail="fail")
+        def test_fail():
+            assert False
+    """)
+    result = testdir.runpytest()
+    assert_outcomes(result, passed=0, failed=1, rerun=1)
+
+
+def test_no_rerun_and_xfails_on_failure(testdir):
+    testdir.makepyfile("""
+        import pytest
+        @pytest.mark.flaky(reruns=0, on_retries_fail="xfail")
+        def test_fail():
+            assert False
+    """)
+    result = testdir.runpytest()
+    assert_outcomes(result, passed=0, xfailed=1, rerun=0)
+
+
+def test_rerun_fails_and_xfails_after_consistent_test_failure_with_condition(testdir):
+    testdir.makepyfile("""
+        import pytest
+        @pytest.mark.flaky(reruns=1, on_retries_fail="xfail", condition="True")
+        def test_fail():
+            assert False
+    """)
+    result = testdir.runpytest()
+    assert_outcomes(result, passed=0, xfailed=1, rerun=1)

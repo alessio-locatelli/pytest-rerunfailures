@@ -12,7 +12,6 @@ import warnings
 from contextlib import suppress
 
 import pytest
-from _pytest.outcomes import fail
 from _pytest.runner import runtestprotocol
 from packaging.version import parse as parse_version
 
@@ -173,6 +172,15 @@ def get_reruns_condition(item, report):
     return True
 
 
+def get_on_retries_fail_value(item):
+    rerun_marker = _get_marker(item)
+
+    if rerun_marker is not None and "on_retries_fail" in rerun_marker.kwargs:
+        return rerun_marker.kwargs["on_retries_fail"]
+
+    return "fail"
+
+
 def evaluate_condition(item, mark, condition: object, report) -> bool:
     if callable(condition):
         try:
@@ -204,21 +212,13 @@ def evaluate_condition(item, mark, condition: object, report) -> bool:
             filename = f"<{mark.name} condition>"
             condition_code = compile(condition, filename, "eval")
             result = eval(condition_code, globals_)  # noqa: S307
-        except SyntaxError as exc:
-            msglines = [
-                "Error evaluating %r condition" % mark.name,
-                "    " + condition,
-                "    " + " " * (exc.offset or 0) + "^",
-                "SyntaxError: invalid syntax",
-            ]
-            fail("\n".join(msglines), pytrace=False)
         except Exception as exc:
             msglines = [
-                "Error evaluating %r condition" % mark.name,
-                "    " + condition,
+                f"Error evaluating {mark.name!r} condition as a string",
                 *traceback.format_exception_only(type(exc), exc),
             ]
-            fail("\n".join(msglines), pytrace=False)
+            warnings.warn("\n".join(msglines))
+            return False
 
     # Boolean condition.
     else:
@@ -229,7 +229,8 @@ def evaluate_condition(item, mark, condition: object, report) -> bool:
                 "Error evaluating %r condition as a boolean" % mark.name,
                 *traceback.format_exception_only(type(exc), exc),
             ]
-            fail("\n".join(msglines), pytrace=False)
+            warnings.warn("\n".join(msglines))
+            return False
     return result
 
 
@@ -332,9 +333,11 @@ def pytest_configure(config):
     # add flaky marker
     config.addinivalue_line(
         "markers",
-        "flaky(reruns=1, reruns_delay=0): mark test to re-run up "
-        "to 'reruns' times. Add a delay of 'reruns_delay' seconds "
-        "between re-runs.",
+        "flaky(reruns=1, reruns_delay=0, on_retries_fail='fail'): "
+        "mark test to re-run up to 'reruns' times. "
+        "Add a delay of 'reruns_delay' seconds between re-runs. "
+        "If on_retries_fail is 'xfail', the test will be marked as xfailed "
+        "if it fails on the last rerun.",
     )
 
     if config.pluginmanager.hasplugin("xdist") and HAS_PYTEST_HANDLECRASHITEM:
@@ -577,6 +580,13 @@ def pytest_runtest_protocol(item, nextitem):
             report.rerun = item.execution_count - 1
             if _should_not_rerun(item, report, reruns):
                 # last run or no failure detected, log normally
+                if (
+                    report.failed
+                    and item.execution_count > reruns
+                    and get_on_retries_fail_value(item) == "xfail"
+                ):
+                    report.outcome = "skipped"
+                    report.wasxfail = "reruns failed"
                 item.ihook.pytest_runtest_logreport(report=report)
             else:
                 # failure detected and reruns not exhausted, since i < reruns
