@@ -1521,3 +1521,83 @@ def test_reruns_with_callable_condition_raising_exception(testdir):
         "*UserWarning: Error evaluating 'flaky' condition as a callable*",
         "*ValueError: Whoops!*",
     ])
+
+
+def test_rerun_fails_and_xfails_after_consistent_test_failure(testdir):
+    testdir.makepyfile("""
+        import pytest
+        @pytest.mark.flaky(reruns=1, on_retries_fail="xfail")
+        def test_fail():
+            assert False
+    """)
+    result = testdir.runpytest()
+    assert_outcomes(result, passed=0, xfailed=1, rerun=1)
+
+
+def test_rerun_passes_with_xfail_on_retries_fail(testdir):
+    testdir.makepyfile(f"""
+        import pytest
+        @pytest.mark.flaky(reruns=2, on_retries_fail="xfail")
+        def test_pass():
+            {temporary_failure(1)}""")
+    result = testdir.runpytest("-r", "R")
+    assert_outcomes(result, passed=1, rerun=1)
+
+
+def test_rerun_fails_and_fails_with_fail_on_retries_fail(testdir):
+    testdir.makepyfile("""
+        import pytest
+        @pytest.mark.flaky(reruns=1, on_retries_fail="fail")
+        def test_fail():
+            assert False
+    """)
+    result = testdir.runpytest()
+    assert_outcomes(result, passed=0, failed=1, rerun=1)
+
+
+def test_no_rerun_and_xfails_on_failure(testdir):
+    testdir.makepyfile("""
+        import pytest
+        @pytest.mark.flaky(reruns=0, on_retries_fail="xfail")
+        def test_fail():
+            assert False
+    """)
+    result = testdir.runpytest()
+    assert_outcomes(result, passed=0, xfailed=1, rerun=0)
+
+
+@pytest.mark.parametrize(
+    "condition,expected_xfailed,expected_rerun_count,expected_failed",
+    [
+        ("True", 1, 2, 0),
+        ("lambda e: e.code == 42", 1, 2, 0),
+        ("lambda _: False", 0, 0, 1),
+    ],
+)
+def test_rerun_fails_and_xfails_after_consistent_test_failure_with_condition(
+    testdir,
+    condition,
+    expected_xfailed,
+    expected_rerun_count,
+    expected_failed,
+):
+    testdir.makepyfile(
+        f"""
+    import pytest
+
+    class ExampleError(Exception):
+        code = 42
+
+    @pytest.mark.flaky(reruns=2, on_retries_fail="xfail", condition={condition})
+    def test_fail():
+        raise ExampleError
+    """
+    )
+    result = testdir.runpytest()
+    assert_outcomes(
+        result,
+        passed=0,
+        failed=expected_failed,
+        xfailed=expected_xfailed,
+        rerun=expected_rerun_count,
+    )

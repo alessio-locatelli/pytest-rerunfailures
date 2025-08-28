@@ -123,3 +123,17 @@ That overrides the :option:`--rerun-except` command-line option.
    @pytest.mark.flaky(reruns=5, rerun_except="AssertionError")
    def test_example():
        raise ValueError()
+
+``on_retries_fail``
+^^^^^^^^^^^^^^^^^^^
+
+Specify a behavior on the last attempt.
+By default, the test will be marked as ``failed``, but you can change it to ``xfail``.
+
+.. code-block:: python
+
+   @pytest.mark.flaky(reruns=5, on_retries_fail="xfail")
+   def test_example():
+       ...
+
+This will retry the test 5 times. If all reruns fail, the test will be marked as ``xfailed``.
